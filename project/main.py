@@ -12,13 +12,9 @@ from crawler import get_fund_basic_info
 1. 获得所有开放式基金代码
 2. 通过基金代码获得基金基本信息
 3. 建表，基本信息存入数据库
-4. 获取基金交易费用信息
-5. 建表，费用信息存入数据库
-6. 获取基金经理信息
-7. 建表，经理信息存入数据库
 8. 获取基金历史净值
 9. 建表，净值存入数据库
-10. 基金业绩数据，回撤
+10. 基金业绩数据，回撤?
 """
 
 funds_db_file_path = pathlib.Path(__file__).parent.parent / "data" / "funds.db"
