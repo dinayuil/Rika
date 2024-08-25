@@ -224,12 +224,19 @@ def save_all_fund_split_data():
     conn = sqlite3.connect(funds_db_file_path)
     cursor = conn.cursor()
 
+    # 提取拆分比例并计算比值
+    def calculate_ratio(ratio_str):
+        left, right = map(float, ratio_str.split(':'))
+        return right / left
+
     fund_ids = get_all_fund_id_asc_from_db()
     for id in fund_ids:
         print(id)
         fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=id, indicator="拆分详情")
+        # 拆分还有不同类型？可能需要进一步处理
+        # fund_open_fund_info_em_df['拆分折算比例'] = fund_open_fund_info_em_df['拆分折算比例'].apply(calculate_ratio)
         # print(fund_open_fund_info_em_df)
-        fund_dividend_data = [(id, row['净值日期'].isoformat(), row['累计净值']) for index, row in fund_open_fund_info_em_df.iterrows()]
+        fund_dividend_data = [(id, row['拆分折算日'].isoformat(), row['拆分类型'], row['拆分折算比例']) for index, row in fund_open_fund_info_em_df.iterrows()]
         
         # 保存基金历史全部拆分到数据库
         cursor.executemany('''
