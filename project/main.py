@@ -6,6 +6,7 @@ import pandas as pd
 import random
 import time
 from crawler import get_fund_basic_info
+import re
 
 """
 思路
@@ -20,7 +21,7 @@ from crawler import get_fund_basic_info
 funds_db_file_path = pathlib.Path(__file__).parent.parent / "data" / "funds.db"
 print(funds_db_file_path)
 
-def create_if_not_exists_db():
+def create_if_not_exists_db_tables():
     # 连接到SQLite数据库（如果不存在则创建）
     conn = sqlite3.connect(funds_db_file_path)
     cursor = conn.cursor()
@@ -43,13 +44,54 @@ def create_if_not_exists_db():
         latest_manager_change_date DATE    -- 最新基金经理变动日期
     );
     ''')
+
+    # 创建基金单位净值表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS fund_nav (
+            fund_id VARCHAR(20),                -- 基金代码
+            value_date DATE,                    -- 净值日期
+            nav DECIMAL(10, 4),           -- 净值
+            FOREIGN KEY (fund_id) REFERENCES funds(fund_id)
+        )
+    ''')
+
+    # 创建基金累计净值表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS fund_cumulative_nav (
+            fund_id VARCHAR(20),                -- 基金代码
+            value_date DATE,                    -- 净值日期
+            cumulative_nav DECIMAL(10, 4),      -- 累计净值
+            FOREIGN KEY (fund_id) REFERENCES funds(fund_id)
+        )
+    ''')
+
+    # 创建基金分红表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS fund_dividends (
+            fund_id VARCHAR(20),                -- 基金代码
+            ex_dividend_date DATE,              -- 除息日
+            dividend_per_share DECIMAL(10, 4),  -- 每份分红
+            FOREIGN KEY (fund_id) REFERENCES funds(fund_id)
+        )
+    ''')
+
+    # 创建基金拆分表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS fund_splits (
+            fund_id VARCHAR(20),                -- 基金代码
+            split_date DATE,                    -- 拆分折算日
+            split_ratio TEXT,                   -- 拆分折算比例
+            FOREIGN KEY (fund_id) REFERENCES funds(fund_id)
+        )
+    ''')
+
     conn.commit()
     cursor.close()
     conn.close()
 
-def get_all_fund_partial_data():
+def save_all_fund_partial_data():
     # 连接数据库
-    create_if_not_exists_db()
+    # create_if_not_exists_db()
     conn = sqlite3.connect(funds_db_file_path)
     cursor = conn.cursor()
 
@@ -79,8 +121,128 @@ def get_all_fund_partial_data():
         conn.close()
 
 
-all_funds_basic_info = []
-i = 0
+def get_all_fund_id_asc_from_db():
+    """获取数据库funds表所有基金代码，升序排列
+
+    Returns:
+        list: funds表所有基金代码（升序排列）
+    """
+    conn = sqlite3.connect(funds_db_file_path)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT fund_id
+        FROM funds
+        ORDER BY fund_id ASC;
+    ''')
+    fund_ids = [row[0] for row in cursor.fetchall()]
+
+    cursor.close()
+    conn.close()
+
+    return fund_ids
+
+
+def save_all_fund_nav_data():
+    conn = sqlite3.connect(funds_db_file_path)
+    cursor = conn.cursor()
+
+    fund_ids = get_all_fund_id_asc_from_db()
+
+    # 获取每个基金的每日单位净值
+    for id in fund_ids:
+        print(id)
+        fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=id, indicator="单位净值走势")
+        fund_nav_data = [(id, row['净值日期'].isoformat(), row['单位净值']) for index, row in fund_open_fund_info_em_df.iterrows()]
+
+        # 保存基金历史全部每日单位净值到数据库
+        cursor.executemany('''
+            INSERT INTO fund_nav (fund_id, value_date, nav)
+            VALUES (?, ?, ?)
+        ''', fund_nav_data)
+        conn.commit()
+
+    # conn.commit()
+    cursor.close()
+    conn.close()
+
+create_if_not_exists_db_tables()
+save_all_fund_nav_data()
+
+
+# 待验证
+def save_all_fund_cumulative_nav_data():
+    conn = sqlite3.connect(funds_db_file_path)
+    cursor = conn.cursor()
+
+    fund_ids = get_all_fund_id_asc_from_db()
+
+    for id in fund_ids:
+        print(id)
+        # 获取基金的每日累计净值
+        fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=id, indicator="累计净值走势")
+        fund_cumulative_nav_data = [(id, row['净值日期'].isoformat(), row['累计净值']) for index, row in fund_open_fund_info_em_df.iterrows()]
+
+        # 保存基金历史全部每日单位净值到数据库
+        cursor.executemany('''
+            INSERT INTO fund_cumulative_nav (fund_id, value_date, cumulative_nav)
+            VALUES (?, ?, ?)
+        ''', fund_cumulative_nav_data)
+        conn.commit()
+
+    # conn.commit()
+    cursor.close()
+    conn.close()
+
+
+# 待验证
+def save_all_fund_dividend_data():
+    conn = sqlite3.connect(funds_db_file_path)
+    cursor = conn.cursor()
+
+    fund_ids = get_all_fund_id_asc_from_db()
+    for id in fund_ids:
+        print(id)
+        fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=id, indicator="分红送配详情")
+        # print(fund_open_fund_info_em_df)
+        fund_open_fund_info_em_df['每份分红'] = fund_open_fund_info_em_df['每份分红'].apply(lambda x: float(re.search(r'\d+\.\d+', x).group()) if re.search(r'\d+\.\d+', x) else None)
+        fund_dividend_data = [(id, row['除息日'].isoformat(), row['每份分红']) for index, row in fund_open_fund_info_em_df.iterrows()]
+        
+        # 保存基金历史全部分红到数据库
+        cursor.executemany('''
+            INSERT INTO fund_nav (fund_id, ex_dividend_date, dividend_per_share)
+            VALUES (?, ?, ?)
+        ''', fund_dividend_data)
+        conn.commit()
+
+    cursor.close()
+    conn.close()
+
+
+# 待验证
+def save_all_fund_split_data():
+    conn = sqlite3.connect(funds_db_file_path)
+    cursor = conn.cursor()
+
+    fund_ids = get_all_fund_id_asc_from_db()
+    for id in fund_ids:
+        print(id)
+        fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=id, indicator="拆分详情")
+        # print(fund_open_fund_info_em_df)
+        fund_dividend_data = [(id, row['净值日期'].isoformat(), row['累计净值']) for index, row in fund_open_fund_info_em_df.iterrows()]
+        
+        # 保存基金历史全部拆分到数据库
+        cursor.executemany('''
+            INSERT INTO fund_nav (fund_id, split_date, split_ratio)
+            VALUES (?, ?, ?)
+        ''', fund_dividend_data)
+        conn.commit()
+
+    cursor.close()
+    conn.close()
+
+# all_funds_basic_info = []
+# i = 0
 # 获取开放式基金列表
 # fund_open_fund_daily_em_df = ak.fund_open_fund_daily_em()
 # for row in fund_open_fund_daily_em_df.itertuples():
@@ -91,8 +253,6 @@ i = 0
 #     i += 1
 #     if i == 9:
 #         break
-
-
 
 # data_to_insert = [
 #     (
@@ -126,6 +286,7 @@ i = 0
 #     # 关闭连接
 #     cursor.close()
 #     conn.close()
+
 
 
 """

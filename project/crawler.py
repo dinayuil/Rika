@@ -215,5 +215,5 @@ def get_least_redemption_period_rate(fund_code: str, is_money_fund: bool):
     return redemption_info
 
 # test
-print(get_fund_basic_info('018647'))
+# print(get_fund_basic_info('018647'))
 # print(get_least_redemption_period_rate('050025'))
