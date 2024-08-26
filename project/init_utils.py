@@ -153,7 +153,7 @@ def save_all_fund_nav_data(funds_db_file_path: str):
     conn = sqlite3.connect(funds_db_file_path)
     cursor = conn.cursor()
 
-    fund_ids = get_all_fund_id_asc_from_db()
+    fund_ids = get_all_fund_id_asc_from_db(funds_db_file_path)
 
     # 获取每个基金的每日单位净值
     for fund_id in fund_ids:
@@ -193,7 +193,7 @@ def save_all_fund_split_data(funds_db_file_path: str):
         left, right = map(float, ratio_str.split(':'))
         return right / left
 
-    fund_ids = get_all_fund_id_asc_from_db()
+    fund_ids = get_all_fund_id_asc_from_db(funds_db_file_path)
     for fund_id in fund_ids:
         print(fund_id)
         fund_dividend_data = get_fund_all_split_data_for_save(fund_id)
@@ -224,7 +224,7 @@ def save_all_fund_dividend_data(funds_db_file_path: str):
     conn = sqlite3.connect(funds_db_file_path)
     cursor = conn.cursor()
 
-    fund_ids = get_all_fund_id_asc_from_db()
+    fund_ids = get_all_fund_id_asc_from_db(funds_db_file_path)
     for fund_id in fund_ids:
         print(fund_id)
         fund_dividend_data = get_fund_all_dividend_data_for_save(fund_id)
@@ -254,7 +254,7 @@ def save_all_fund_cumulative_nav_data(funds_db_file_path: str):
     conn = sqlite3.connect(funds_db_file_path)
     cursor = conn.cursor()
 
-    fund_ids = get_all_fund_id_asc_from_db()
+    fund_ids = get_all_fund_id_asc_from_db(funds_db_file_path)
 
     for fund_id in fund_ids:
         print(fund_id)
