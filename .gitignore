@@ -197,4 +197,5 @@ pyrightconfig.json
 # other files or folders
 myenv/
 data/
+testdata/
 project/tryout.py
