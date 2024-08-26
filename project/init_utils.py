@@ -1,10 +1,11 @@
 import sqlite3
 import pathlib
 import akshare as ak
+import re
 
 default_db_file_path = pathlib.Path(__file__).parent.parent / "data" / "funds.db"
 
-def create_if_not_exists_db_tables(funds_db_file_path=default_db_file_path):
+def create_if_not_exists_db_tables(funds_db_file_path):
     # 连接到SQLite数据库（如果不存在则创建）
     conn = sqlite3.connect(funds_db_file_path)
     cursor = conn.cursor()
@@ -199,3 +200,35 @@ def save_all_fund_split_data(funds_db_file_path: str):
 
     cursor.close()
     conn.close()
+
+
+def get_fund_all_dividend_data_for_save(fund_id: str):
+    fund_dividend_data = []
+    fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=fund_id, indicator="分红送配详情")
+    # print(fund_open_fund_info_em_df)
+    if fund_open_fund_info_em_df is not None:
+        fund_open_fund_info_em_df['每份分红'] = fund_open_fund_info_em_df['每份分红'].apply(lambda x: float(re.search(r'\d+\.\d+', x).group()) if re.search(r'\d+\.\d+', x) else None)
+        fund_dividend_data = [(fund_id, row['除息日'], row['每份分红']) for index, row in fund_open_fund_info_em_df.iterrows()]
+    return fund_dividend_data
+
+
+# 待验证
+def save_all_fund_dividend_data(funds_db_file_path: str):
+    conn = sqlite3.connect(funds_db_file_path)
+    cursor = conn.cursor()
+
+    fund_ids = get_all_fund_id_asc_from_db()
+    for id in fund_ids:
+        print(id)
+        fund_dividend_data = get_fund_all_dividend_data_for_save(id)
+        
+        # 保存基金历史全部分红到数据库
+        cursor.executemany('''
+            INSERT INTO fund_dividends (fund_id, ex_dividend_date, dividend_per_share)
+            VALUES (?, ?, ?)
+        ''', fund_dividend_data)
+        conn.commit()
+
+    cursor.close()
+    conn.close()
+
