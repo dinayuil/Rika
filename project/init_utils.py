@@ -138,10 +138,11 @@ def get_all_fund_id_asc_from_db(funds_db_file_path: str):
 
 def get_fund_all_nav_data(fund_id: str):
     fund_nav_data = []
-    fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=id, indicator="单位净值走势")
+    fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=fund_id, indicator="单位净值走势")
     if fund_open_fund_info_em_df is not None:
-        fund_nav_data = [(id, row['净值日期'].isoformat(), row['单位净值']) for index, row in fund_open_fund_info_em_df.iterrows()]
+        fund_nav_data = [(fund_id, row['净值日期'].isoformat(), row['单位净值']) for index, row in fund_open_fund_info_em_df.iterrows()]
     return fund_nav_data
+
 
 def save_all_fund_nav_data(funds_db_file_path: str):
     """获取funds表里所有基金的每日单位净值，存入fund_nav表。耗时很长。
