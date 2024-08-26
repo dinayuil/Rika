@@ -19,29 +19,7 @@ import re
 """
 
 
-# 待验证
-def save_all_fund_cumulative_nav_data():
-    conn = sqlite3.connect(funds_db_file_path)
-    cursor = conn.cursor()
 
-    fund_ids = get_all_fund_id_asc_from_db()
-
-    for id in fund_ids:
-        print(id)
-        # 获取基金的每日累计净值
-        fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=id, indicator="累计净值走势")
-        fund_cumulative_nav_data = [(id, row['净值日期'].isoformat(), row['累计净值']) for index, row in fund_open_fund_info_em_df.iterrows()]
-
-        # 保存基金历史全部每日单位净值到数据库
-        cursor.executemany('''
-            INSERT INTO fund_cumulative_nav (fund_id, value_date, cumulative_nav)
-            VALUES (?, ?, ?)
-        ''', fund_cumulative_nav_data)
-        conn.commit()
-
-    # conn.commit()
-    cursor.close()
-    conn.close()
 
 
 

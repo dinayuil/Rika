@@ -136,6 +136,13 @@ def get_all_fund_id_asc_from_db(funds_db_file_path: str):
     return fund_ids
 
 
+def get_fund_all_nav_data(fund_id: str):
+    fund_nav_data = []
+    fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=id, indicator="单位净值走势")
+    if fund_open_fund_info_em_df is not None:
+        fund_nav_data = [(id, row['净值日期'].isoformat(), row['单位净值']) for index, row in fund_open_fund_info_em_df.iterrows()]
+    return fund_nav_data
+
 def save_all_fund_nav_data(funds_db_file_path: str):
     """获取funds表里所有基金的每日单位净值，存入fund_nav表。耗时很长。
 
@@ -148,10 +155,9 @@ def save_all_fund_nav_data(funds_db_file_path: str):
     fund_ids = get_all_fund_id_asc_from_db()
 
     # 获取每个基金的每日单位净值
-    for id in fund_ids:
-        print(id)
-        fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=id, indicator="单位净值走势")
-        fund_nav_data = [(id, row['净值日期'].isoformat(), row['单位净值']) for index, row in fund_open_fund_info_em_df.iterrows()]
+    for fund_id in fund_ids:
+        print(fund_id)
+        fund_nav_data = get_fund_all_nav_data(fund_id)
 
         # 保存基金历史全部每日单位净值到数据库
         cursor.executemany('''
@@ -187,9 +193,9 @@ def save_all_fund_split_data(funds_db_file_path: str):
         return right / left
 
     fund_ids = get_all_fund_id_asc_from_db()
-    for id in fund_ids:
-        print(id)
-        fund_dividend_data = get_fund_all_split_data_for_save(id)
+    for fund_id in fund_ids:
+        print(fund_id)
+        fund_dividend_data = get_fund_all_split_data_for_save(fund_id)
         
         # 保存基金历史全部拆分到数据库
         cursor.executemany('''
@@ -218,9 +224,9 @@ def save_all_fund_dividend_data(funds_db_file_path: str):
     cursor = conn.cursor()
 
     fund_ids = get_all_fund_id_asc_from_db()
-    for id in fund_ids:
-        print(id)
-        fund_dividend_data = get_fund_all_dividend_data_for_save(id)
+    for fund_id in fund_ids:
+        print(fund_id)
+        fund_dividend_data = get_fund_all_dividend_data_for_save(fund_id)
         
         # 保存基金历史全部分红到数据库
         cursor.executemany('''
@@ -232,3 +238,34 @@ def save_all_fund_dividend_data(funds_db_file_path: str):
     cursor.close()
     conn.close()
 
+
+def get_fund_all_cumulative_nav_data(fund_id: str):
+    # 获取基金的每日累计净值
+    fund_cumulative_nav_data = []
+    fund_open_fund_info_em_df = ak.fund_open_fund_info_em(symbol=fund_id, indicator="累计净值走势")
+    if fund_open_fund_info_em_df is not None:
+        fund_cumulative_nav_data = [(fund_id, row['净值日期'].isoformat(), row['累计净值']) for index, row in fund_open_fund_info_em_df.iterrows()]
+    return fund_cumulative_nav_data
+
+
+# 待验证
+def save_all_fund_cumulative_nav_data(funds_db_file_path: str):
+    conn = sqlite3.connect(funds_db_file_path)
+    cursor = conn.cursor()
+
+    fund_ids = get_all_fund_id_asc_from_db()
+
+    for fund_id in fund_ids:
+        print(fund_id)
+        fund_cumulative_nav_data = get_fund_all_cumulative_nav_data(fund_id)
+
+        # 保存基金历史全部每日单位净值到数据库
+        cursor.executemany('''
+            INSERT INTO fund_cumulative_nav (fund_id, value_date, cumulative_nav)
+            VALUES (?, ?, ?)
+        ''', fund_cumulative_nav_data)
+        conn.commit()
+
+    # conn.commit()
+    cursor.close()
+    conn.close()
